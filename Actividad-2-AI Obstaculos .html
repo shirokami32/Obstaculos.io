@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Carrera de Obstáculos — Agentes con IA</title>
+<style>
+  :root{
+    --bg:#0f1724;
+    --panel:#16233a;
+    --accent:#ffb703;
+    --accent2:#00d9c0;
+    --danger:#ff4d6d;
+    --text:#eef2ff;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI', Arial, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:20px;
+  }
+  h1{font-size:22px;margin:6px 0 14px;color:var(--accent);}
+  #app{width:100%;max-width:1000px;}
+  #controles{
+    display:flex;
+    gap:12px;
+    align-items:center;
+    flex-wrap:wrap;
+    margin-bottom:14px;
+    background:var(--panel);
+    padding:12px 16px;
+    border-radius:10px;
+  }
+  select,button{
+    background:#22314e;
+    color:var(--text);
+    border:1px solid #34486f;
+    padding:8px 12px;
+    border-radius:6px;
+    font-size:14px;
+    cursor:pointer;
+  }
+  button:hover, select:hover{border-color:var(--accent);}
+  button.primario{background:var(--accent);color:#1a1a1a;font-weight:bold;border:none;}
+  button.primario:hover{opacity:0.9;}
+  #zonaJuego{
+    display:flex;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  #canvasWrap{
+    position:relative;
+    background:#0a1120;
+    border-radius:10px;
+    overflow:hidden;
+    border:2px solid #22314e;
+    box-shadow:0 0 30px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,183,3,0.06);
+  }
+  canvas{display:block;}
+  .overlay{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    background:rgba(10,17,32,0.92);
+    text-align:center;
+    gap:10px;
+  }
+  .overlay h2{color:var(--accent);margin:0;}
+  .overlay p{margin:0;color:#c9d3e6;font-size:14px;max-width:400px;}
+  #panelLateral{
+    background:transparent;
+    border-radius:10px;
+    width:300px;
+    font-size:13px;
+    line-height:1.5;
+    max-height:480px;
+    overflow-y:auto;
+    padding-right:2px;
+  }
+  #panelLateral::-webkit-scrollbar{width:6px;}
+  #panelLateral::-webkit-scrollbar-thumb{background:#2c3e5f;border-radius:4px;}
+  .panelCard{
+    background:var(--panel);
+    border:1px solid #22314e;
+    border-radius:10px;
+    padding:12px 14px;
+    margin-bottom:10px;
+  }
+  .panelCard h3{
+    margin:0 0 8px;
+    color:var(--accent2);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    border-bottom:1px solid #22314e;
+    padding-bottom:6px;
+  }
+  .panelCard .valor{
+    font-family:'Consolas', monospace;
+    color:var(--text);
+    word-break:break-word;
+    white-space:pre-line;
+    font-size:12px;
+  }
+  .panelCard table{font-size:11px;}
+  .panelCard th,.panelCard td{padding:6px 4px;}
+  .decisionItem{margin-bottom:6px;padding-bottom:6px;border-bottom:1px dashed #22314e;}
+  .decisionItem:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+  #accionActual{
+    display:inline-block;
+    margin-top:4px;
+    padding:4px 10px;
+    border-radius:6px;
+    background:#2c3e5f;
+    font-weight:bold;
+  }
+  #marcadorTop{
+    position:absolute;
+    top:10px;right:14px;
+    font-size:16px;
+    font-weight:bold;
+    color:var(--accent);
+    background:rgba(10,17,32,0.55);
+    padding:4px 12px;
+    border-radius:20px;
+    border:1px solid rgba(255,183,3,0.35);
+    text-shadow:0 0 8px rgba(255,183,3,0.6);
+  }
+  #hudSuperior{
+    position:absolute;
+    top:10px;left:14px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    width:150px;
+  }
+  .hudBadge{
+    background:rgba(10,17,32,0.55);
+    padding:4px 10px;
+    border-radius:20px;
+    font-size:11px;
+    font-weight:bold;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    border:1px solid rgba(255,255,255,0.15);
+  }
+  .hudDot{width:8px;height:8px;border-radius:50%;display:inline-block;background:#ffd166;}
+  .hudBarWrap{
+    background:rgba(10,17,32,0.55);
+    border-radius:20px;
+    height:9px;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,0.15);
+  }
+  .hudBarFill{height:100%;border-radius:20px;transition:width 0.2s;background:#00d9c0;width:100%;}
+  table{width:100%;border-collapse:collapse;}
+  th,td{padding:8px;text-align:center;border-bottom:1px solid #2c3e5f;}
+  th{color:var(--accent2);}
+  .nota{color:#8fa3c9;font-size:12px;margin-top:8px;}
+</style>
+</head>
+<body>
+<h1>🏁 Carrera de Obstáculos — 4 Arquitecturas de Agentes</h1>
+<div id="app">
+
+  <div id="controles">
+    <label>Modo:
+      <select id="selectorModo">
+        <option value="manual">Manual</option>
+        <option value="reflejo">Agente de reflejo</option>
+        <option value="modelo">Agente basado en modelo</option>
+        <option value="objetivos">Agente basado en objetivos</option>
+        <option value="utilidad">Agente basado en utilidad</option>
+      </select>
+    </label>
+    <button id="btnIniciar" class="primario">Iniciar partida</button>
+    <button id="btnExperimento">Ejecutar 20 partidas (modo acelerado)</button>
+  </div>
+
+  <div id="zonaJuego">
+    <div id="canvasWrap" style="width:640px;height:480px;">
+      <canvas id="canvas" width="640" height="480"></canvas>
+      <div id="marcadorTop">Puntaje: 0</div>
+      <div id="hudSuperior">
+        <div class="hudBadge" id="carrilBadge"><span class="hudDot" id="carrilDot"></span>Carril</div>
+        <div class="hudBarWrap" title="Combustible restante"><div class="hudBarFill" id="barraCombustibleFill"></div></div>
+        <div class="hudBarWrap" title="Progreso hacia la meta"><div class="hudBarFill" id="barraMetaFill"></div></div>
+      </div>
+
+      <div class="overlay" id="pantallaInicio">
+        <h2>Carrera de Obstáculos</h2>
+        <p>Salta los obstáculos naranjas (suelo) y agáchate ante los morados (aire) con ↑/Espacio y ↓.
+        Cambia de carril con W (más rápido) y S (más seguro): cada carril tiene su propia velocidad,
+        riesgo y consumo de combustible. Llega a la meta sin quedarte sin combustible ni colisionar.</p>
+        <button class="primario" id="btnComenzar">Comenzar</button>
+      </div>
+
+      <div class="overlay" id="pantallaFin" style="display:none;">
+        <h2>Fin de la partida</h2>
+        <p id="textoFin"></p>
+        <button class="primario" id="btnReintentar">Volver a jugar</button>
+      </div>
+    </div>
+
+    <div id="panelLateral">
+      <div class="panelCard">
+        <h3>Percepción (instante actual)</h3>
+        <div class="valor" id="percepcionTexto">—</div>
+      </div>
+
+      <div class="panelCard">
+        <h3>Estado interno del agente</h3>
+        <div class="valor" id="estadoInternoTexto">—</div>
+      </div>
+
+      <div class="panelCard">
+        <h3>Acción elegida</h3>
+        <div id="accionActual">ninguna</div>
+      </div>
+
+      <div class="panelCard">
+        <h3>Traza: últimas 5 decisiones</h3>
+        <div class="valor" id="trazaTexto">Aún no hay decisiones registradas.</div>
+      </div>
+
+      <div class="panelCard">
+        <h3>Resultados de experimentación</h3>
+        <table id="tablaResultados">
+          <thead>
+            <tr><th>Agente</th><th>Puntaje prom.</th><th>Desv. estándar</th><th>Superv. prom. (s)</th><th>Meta (%)</th></tr>
+          </thead>
+          <tbody id="cuerpoTablaResultados">
+            <tr><td colspan="5" class="nota">Sin experimentos aún.</td></tr>
+          </tbody>
+        </table>
+        <p class="nota">Corre 20 partidas aceleradas para el agente elegido en el selector.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* =========================================================
+   LÓGICA DEL JUEGO (independiente de los agentes)
+   ========================================================= */
+const CANVAS_W = 640, CANVAS_H = 480;
+const GROUND_Y = 400;
+const PLAYER_X = 80;
+const PLAYER_W = 40, PLAYER_H_NORMAL = 40, PLAYER_H_AGACHADO = 20;
+const GRAVEDAD = 0.9;
+const FUERZA_SALTO = -15;
+const VELOCIDAD_BASE = 5;
+const INCREMENTO_VELOCIDAD = 0.0008; // aumenta la dificultad con el tiempo
+const VELOCIDAD_MAXIMA = 14; // techo de dificultad para que una partida siga siendo jugable
+
+// Carriles: cada uno representa una combinación distinta de velocidad, riesgo
+// de obstáculos y consumo de combustible. Solo los agentes basado en objetivos
+// y basado en utilidad deciden entre ellos; reflejo y modelo siempre se quedan
+// en el carril "Equilibrado" (índice 1), igual que en la versión anterior.
+const LANES = [
+  { id: 0, nombre: 'Rápido',      color: '#ff6b6b', velocidadMultiplicador: 1.35, factorRiesgo: 0.65, consumoPorPixel: 0.0100 },
+  { id: 1, nombre: 'Equilibrado', color: '#ffd166', velocidadMultiplicador: 1.00, factorRiesgo: 1.00, consumoPorPixel: 0.0070 },
+  { id: 2, nombre: 'Seguro',      color: '#06d6a0', velocidadMultiplicador: 0.75, factorRiesgo: 1.60, consumoPorPixel: 0.0045 }
+];
+const META_DISTANCIA = 5000;       // distancia total para "ganar" la partida
+const COMBUSTIBLE_MAXIMO = 100;
+
+class Juego {
+  constructor() { this.reset(); }
+
+  reset() {
+    this.playerY = GROUND_Y - PLAYER_H_NORMAL;
+    this.playerH = PLAYER_H_NORMAL;
+    this.velY = 0;
+    this.enElSuelo = true;
+    this.agachado = false;
+    this.obstaculos = [];
+    this.frame = 0;
+    this.score = 0;
+    this.gameSpeed = VELOCIDAD_BASE;
+    this.terminado = false;
+    this.carril = 1; // arranca en el carril "Equilibrado"
+    this.combustible = COMBUSTIBLE_MAXIMO;
+    this.distanciaRecorrida = 0;
+    this.victoria = false;
+    this.sinCombustible = false;
+    this.framesHastaProximoSpawn = this.calcularProximoSpawn();
+  }
+
+  calcularProximoSpawn() {
+    const factor = LANES[this.carril].factorRiesgo;
+    return Math.floor((55 + Math.random() * 55) * factor);
+  }
+
+  // Devuelve la percepción del instante actual: lo único que el agente de reflejo puede usar.
+  obtenerPercepcion() {
+    let cercano = null;
+    for (const o of this.obstaculos) {
+      if (o.x + o.width >= PLAYER_X) {
+        if (!cercano || o.x < cercano.x) cercano = o;
+      }
+    }
+    const lane = LANES[this.carril];
+    const velocidadEfectiva = this.gameSpeed * lane.velocidadMultiplicador;
+    return {
+      obstaculoDetectado: !!cercano,
+      distancia: cercano ? Math.round(cercano.x - (PLAYER_X + PLAYER_W)) : null,
+      tipo: cercano ? cercano.tipo : null,
+      velocidadJuego: parseFloat(velocidadEfectiva.toFixed(2)),
+      enElSuelo: this.enElSuelo,
+      agachado: this.agachado,
+      carrilActual: this.carril,
+      combustibleRestante: parseFloat(this.combustible.toFixed(1)),
+      distanciaRecorrida: Math.round(this.distanciaRecorrida),
+      metaDistancia: META_DISTANCIA
+    };
+  }
+
+  aplicarAccion(accion) {
+    if (accion === 'saltar' && this.enElSuelo && !this.agachado) {
+      this.velY = FUERZA_SALTO;
+      this.enElSuelo = false;
+    } else if (accion === 'agachar' && this.enElSuelo) {
+      this.agachado = true;
+    } else {
+      if (this.agachado) this.agachado = false;
+      if (accion === 'carrilArriba' && this.carril > 0) this.carril--;
+      else if (accion === 'carrilAbajo' && this.carril < LANES.length - 1) this.carril++;
+    }
+  }
+
+  colisiona(a, b) {
+    return a.x < b.x + b.width && a.x + a.width > b.x &&
+           a.y < b.y + b.height && a.y + a.height > b.y;
+  }
+
+  step(accion) {
+    if (this.terminado) return { percepcion: this.obtenerPercepcion(), terminado: true };
+
+    this.aplicarAccion(accion);
+
+    this.playerH = this.agachado ? PLAYER_H_AGACHADO : PLAYER_H_NORMAL;
+    if (!this.enElSuelo) {
+      this.velY += GRAVEDAD;
+      this.playerY += this.velY;
+      if (this.playerY >= GROUND_Y - this.playerH) {
+        this.playerY = GROUND_Y - this.playerH;
+        this.velY = 0;
+        this.enElSuelo = true;
+      }
+    } else {
+      this.playerY = GROUND_Y - this.playerH;
+    }
+
+    this.framesHastaProximoSpawn--;
+    if (this.framesHastaProximoSpawn <= 0) {
+      const tipo = Math.random() < 0.5 ? 'suelo' : 'aire';
+      const width = tipo === 'suelo' ? 30 : 42;
+      const height = tipo === 'suelo' ? 40 : 20;
+      const y = tipo === 'suelo' ? GROUND_Y - height : GROUND_Y - PLAYER_H_NORMAL - 4;
+      this.obstaculos.push({ x: CANVAS_W, y, width, height, tipo });
+      this.framesHastaProximoSpawn = this.calcularProximoSpawn();
+    }
+
+    this.gameSpeed = Math.min(this.gameSpeed + INCREMENTO_VELOCIDAD, VELOCIDAD_MAXIMA);
+    const lane = LANES[this.carril];
+    const velocidadEfectiva = this.gameSpeed * lane.velocidadMultiplicador;
+    for (const o of this.obstaculos) o.x -= velocidadEfectiva;
+    this.obstaculos = this.obstaculos.filter(o => o.x + o.width > 0);
+
+    this.distanciaRecorrida += velocidadEfectiva;
+    this.combustible = Math.max(0, this.combustible - velocidadEfectiva * lane.consumoPorPixel);
+
+    const cajaJugador = { x: PLAYER_X, y: this.playerY, width: PLAYER_W, height: this.playerH };
+    for (const o of this.obstaculos) {
+      if (this.colisiona(cajaJugador, o)) { this.terminado = true; break; }
+    }
+
+    if (!this.terminado && this.combustible <= 0) { this.sinCombustible = true; this.terminado = true; }
+    if (!this.terminado && this.distanciaRecorrida >= META_DISTANCIA) { this.victoria = true; this.terminado = true; }
+
+    this.frame++;
+    this.score = Math.floor(this.distanciaRecorrida * 0.1);
+    return { percepcion: this.obtenerPercepcion(), terminado: this.terminado };
+  }
+}
+
+/* =========================================================
+   AGENTE DE REFLEJO SIMPLE
+   Decide ÚNICAMENTE con la percepción del instante actual.
+   No guarda memoria de estados anteriores.
+   ========================================================= */
+function agenteReflejo(percepcion) {
+  // Con GRAVEDAD=0.9 y FUERZA_SALTO=-15, el jugador tarda ~2.9 frames en alcanzar
+  // la altura mínima de despeje y empieza a descender de nuevo ~30.4 frames después
+  // de saltar. Un umbral de 25px da margen suficiente a la velocidad inicial (5px/frame),
+  // pero es FIJO: no se adapta cuando gameSpeed sube, por eso el agente termina
+  // saltando demasiado tarde a alta velocidad (ver pregunta de reflexión 3).
+  const UMBRAL_SALTO = 25;    // distancia fija en píxeles, NO se adapta a la velocidad del juego
+  const UMBRAL_AGACHAR = 30;  // agacharse es una reacción instantánea, no necesita tanto margen
+
+  // Regla condición-acción 1: obstáculo de suelo dentro del umbral y estoy en el suelo -> saltar
+  if (percepcion.tipo === 'suelo' && percepcion.distancia !== null &&
+      percepcion.distancia < UMBRAL_SALTO && percepcion.enElSuelo) {
+    return 'saltar';
+  }
+  // Regla condición-acción 2: obstáculo aéreo dentro del umbral -> agacharse
+  if (percepcion.tipo === 'aire' && percepcion.distancia !== null &&
+      percepcion.distancia < UMBRAL_AGACHAR) {
+    return 'agachar';
+  }
+  // Regla condición-acción 3: sin obstáculo cercano -> no hacer nada (deja de agacharse)
+  return 'ninguna';
+}
+
+/* =========================================================
+   AGENTE BASADO EN MODELO
+   Mantiene un estado interno que registra:
+   - una estimación de la velocidad del entorno (obstáculos)
+   - la distancia total recorrida (trazado)
+   Y lo usa para predecir cuándo actuar, adaptando el umbral
+   de reacción a la velocidad real del juego.
+   ========================================================= */
+// Distancia de reacción segura para saltar/agacharse, calibrada ligeramente
+// por encima del tiempo mínimo de ascenso real (~2.9 frames) del salto, para
+// que siga siendo válida incluso cuando la velocidad efectiva sube. La
+// comparten el agente basado en modelo, el basado en objetivos y el basado
+// en utilidad; el de reflejo NO la usa a propósito (usa un umbral fijo).
+function calcularDistanciaSegura(velocidad) {
+  const FACTOR_ANTICIPACION = 3.3;
+  const MARGEN_SEGURIDAD = 15;
+  return velocidad * FACTOR_ANTICIPACION + MARGEN_SEGURIDAD;
+}
+
+function agenteModelo(percepcion, estadoInterno) {
+  let nuevoEstado = estadoInterno ? { ...estadoInterno } : {
+    distanciaAnterior: null,
+    tipoAnterior: null,
+    historialVelocidades: [],
+    velocidadEstimada: percepcion.velocidadJuego,
+    distanciaRecorrida: 0
+  };
+
+  nuevoEstado.distanciaRecorrida += percepcion.velocidadJuego;
+
+  // Estima la velocidad real del entorno comparando la distancia al mismo
+  // obstáculo entre dos percepciones consecutivas (predicción de trayectoria).
+  if (nuevoEstado.distanciaAnterior !== null && percepcion.distancia !== null &&
+      percepcion.tipo === nuevoEstado.tipoAnterior) {
+    const delta = nuevoEstado.distanciaAnterior - percepcion.distancia;
+    if (delta > 0) {
+      nuevoEstado.historialVelocidades.push(delta);
+      if (nuevoEstado.historialVelocidades.length > 10) nuevoEstado.historialVelocidades.shift();
+    }
+  }
+  // Promedio móvil exponencial: pondera más las muestras recientes que las
+  // antiguas, así el estado interno converge rápido cuando la velocidad real
+  // del juego cambia, en vez de arrastrar un promedio simple ya desactualizado.
+  if (nuevoEstado.historialVelocidades.length) {
+    const ALPHA = 0.35;
+    const ultima = nuevoEstado.historialVelocidades[nuevoEstado.historialVelocidades.length - 1];
+    nuevoEstado.velocidadEstimada = nuevoEstado.historialVelocidades.length === 1
+      ? ultima
+      : ALPHA * ultima + (1 - ALPHA) * nuevoEstado.velocidadEstimada;
+  } else {
+    nuevoEstado.velocidadEstimada = percepcion.velocidadJuego;
+  }
+
+  nuevoEstado.distanciaAnterior = percepcion.distancia;
+  nuevoEstado.tipoAnterior = percepcion.tipo;
+
+  // Distancia de frenado / reacción: crece con la velocidad estimada,
+  // a diferencia del umbral fijo del agente de reflejo.
+  const distanciaSegura = calcularDistanciaSegura(nuevoEstado.velocidadEstimada);
+  nuevoEstado.distanciaSeguraCalculada = Math.round(distanciaSegura);
+
+  let accion = 'ninguna';
+  if (percepcion.tipo === 'suelo' && percepcion.distancia !== null &&
+      percepcion.distancia < distanciaSegura && percepcion.enElSuelo) {
+    accion = 'saltar';
+  } else if (percepcion.tipo === 'aire' && percepcion.distancia !== null &&
+             percepcion.distancia < distanciaSegura) {
+    accion = 'agachar';
+  }
+
+  return { accion, nuevoEstado };
+}
+
+/* =========================================================
+   AGENTE BASADO EN OBJETIVOS
+   Fija como meta llegar al final del tramo (META_DISTANCIA) sin
+   colisionar. Planifica UNA SOLA VEZ, al inicio, el carril con el
+   que lo consigue (el de menor riesgo: "Seguro") y se COMPROMETE
+   con ese plan durante toda la partida — no lo reevalúa. Para el
+   obstáculo inmediato reutiliza la misma reacción de seguridad que
+   el agente basado en modelo (correspondiente al primer requisito
+   del enunciado: reaccionar dentro de una distancia segura).
+   ========================================================= */
+function agenteObjetivos(percepcion, estadoInterno) {
+  const CARRIL_SEGURO = 2;
+  let nuevoEstado = estadoInterno || { carrilObjetivo: CARRIL_SEGURO, planEstablecido: true };
+
+  let accion = 'ninguna';
+  const distanciaSegura = calcularDistanciaSegura(percepcion.velocidadJuego);
+
+  if (percepcion.tipo === 'suelo' && percepcion.distancia !== null &&
+      percepcion.distancia < distanciaSegura && percepcion.enElSuelo) {
+    accion = 'saltar';
+  } else if (percepcion.tipo === 'aire' && percepcion.distancia !== null &&
+             percepcion.distancia < distanciaSegura) {
+    accion = 'agachar';
+  } else if (percepcion.carrilActual !== nuevoEstado.carrilObjetivo) {
+    // Ejecuta el plan: se desplaza un carril por ciclo hacia el objetivo.
+    accion = percepcion.carrilActual > nuevoEstado.carrilObjetivo ? 'carrilArriba' : 'carrilAbajo';
+  }
+
+  return { accion, nuevoEstado };
+}
+
+/* =========================================================
+   AGENTE BASADO EN UTILIDAD
+   No se compromete con un único carril: en cada ciclo evalúa una
+   función de utilidad para los 3 carriles, ponderando velocidad,
+   riesgo de colisión y consumo de combustible, y elige el de mayor
+   utilidad esperada. El peso del combustible sube dinámicamente
+   cuando el tanque empieza a escasear (<30%), así que puede
+   cambiar de carril a mitad de partida si las condiciones cambian
+   — a diferencia del agente basado en objetivos, que no replanifica.
+   ========================================================= */
+function agenteUtilidad(percepcion, estadoInterno) {
+  let nuevoEstado = estadoInterno || {};
+  let accion = 'ninguna';
+  const distanciaSegura = calcularDistanciaSegura(percepcion.velocidadJuego);
+
+  if (percepcion.tipo === 'suelo' && percepcion.distancia !== null &&
+      percepcion.distancia < distanciaSegura && percepcion.enElSuelo) {
+    accion = 'saltar';
+  } else if (percepcion.tipo === 'aire' && percepcion.distancia !== null &&
+             percepcion.distancia < distanciaSegura) {
+    accion = 'agachar';
+  } else {
+    const pesoVelocidad = 1.0;
+    const pesoRiesgo = 1.4;
+    const pesoCombustible = percepcion.combustibleRestante < 30 ? 2.2 : 0.5;
+
+    let mejorCarril = percepcion.carrilActual;
+    let mejorUtilidad = -Infinity;
+    LANES.forEach((lane, idx) => {
+      const utilidad = pesoVelocidad * lane.velocidadMultiplicador
+                      - pesoRiesgo * (1 / lane.factorRiesgo)
+                      - pesoCombustible * (lane.consumoPorPixel * 100);
+      if (utilidad > mejorUtilidad) { mejorUtilidad = utilidad; mejorCarril = idx; }
+    });
+    nuevoEstado.ultimaUtilidadCarril = mejorCarril;
+
+    if (mejorCarril !== percepcion.carrilActual) {
+      accion = mejorCarril < percepcion.carrilActual ? 'carrilArriba' : 'carrilAbajo';
+    }
+  }
+
+  return { accion, nuevoEstado };
+}
+
+/* =========================================================
+   RENDERIZADO Y BUCLE PRINCIPAL (requestAnimationFrame)
+   ========================================================= */
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const selectorModo = document.getElementById('selectorModo');
+const pantallaInicio = document.getElementById('pantallaInicio');
+const pantallaFin = document.getElementById('pantallaFin');
+const textoFin = document.getElementById('textoFin');
+const marcadorTop = document.getElementById('marcadorTop');
+const percepcionTexto = document.getElementById('percepcionTexto');
+const estadoInternoTexto = document.getElementById('estadoInternoTexto');
+const accionActual = document.getElementById('accionActual');
+const trazaTexto = document.getElementById('trazaTexto');
+const carrilBadge = document.getElementById('carrilBadge');
+const carrilDot = document.getElementById('carrilDot');
+const barraCombustibleFill = document.getElementById('barraCombustibleFill');
+const barraMetaFill = document.getElementById('barraMetaFill');
+
+let juego = new Juego();
+let estadoInternoAgente = null;
+let accionManualActual = 'ninguna';
+let corriendo = false;
+let historialDecisiones = []; // guarda hasta 5 decisiones "significativas" (accion != 'ninguna')
+let ultimaAccionFrame = 'ninguna';
+
+// --- elementos puramente visuales (no forman parte de la percepción de los agentes) ---
+let distanciaRecorridaVisual = 0;
+let particulas = [];
+let destelloColision = 0;
+
+const MONTANAS_LEJOS = Array.from({ length: 6 }, (_, i) => ({ x: i * 220, alto: 60 + (i % 3) * 22 }));
+const MONTANAS_CERCA = Array.from({ length: 8 }, (_, i) => ({ x: i * 160, alto: 34 + (i % 2) * 18 }));
+const ESTRELLAS = Array.from({ length: 40 }, () => ({
+  x: Math.random() * CANVAS_W,
+  y: Math.random() * (GROUND_Y - 40),
+  r: Math.random() * 1.5 + 0.5,
+  fase: Math.random() * Math.PI * 2
+}));
+
+function dibujarFranjaParallax(puntos, colorNormal, colorAgachado, alturaBase, factorScroll) {
+  const offset = (distanciaRecorridaVisual * factorScroll) % 220;
+  ctx.fillStyle = colorNormal;
+  for (const m of puntos) {
+    let x = m.x - offset;
+    while (x < -260) x += 220 * puntos.length;
+    if (x > CANVAS_W + 260) continue;
+    ctx.beginPath();
+    ctx.moveTo(x - 90, GROUND_Y);
+    ctx.lineTo(x, GROUND_Y - m.alto);
+    ctx.lineTo(x + 90, GROUND_Y);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function dibujarJugador() {
+  const x = PLAYER_X, y = juego.playerY, w = PLAYER_W, h = juego.playerH;
+
+  // sombra en el suelo: se encoge y se aclara mientras más alto salta
+  const altura = Math.max(0, (GROUND_Y - PLAYER_H_NORMAL) - y);
+  const escalaSombra = Math.max(0.25, 1 - altura / 140);
+  ctx.fillStyle = `rgba(0,0,0,${0.35 * escalaSombra})`;
+  ctx.beginPath();
+  ctx.ellipse(x + w / 2, GROUND_Y + 6, (w / 2) * escalaSombra, 6 * escalaSombra, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // cuerpo del vehículo con degradado
+  const grad = ctx.createLinearGradient(x, y, x, y + h);
+  if (juego.agachado) { grad.addColorStop(0, '#5df2df'); grad.addColorStop(1, '#00b8a3'); }
+  else { grad.addColorStop(0, '#ff8fa3'); grad.addColorStop(1, '#ff3d5e'); }
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, 8);
+  ctx.fill();
+
+  // "visor" delantero
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.beginPath();
+  ctx.roundRect(x + w - 14, y + h * 0.2, 8, h * 0.35, 3);
+  ctx.fill();
+
+  // ruedas (solo visibles cuando no está agachado, look de auto)
+  if (!juego.agachado) {
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath(); ctx.arc(x + 10, y + h, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + w - 10, y + h, 5, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function actualizarYDibujarParticulas() {
+  if (juego.enElSuelo && !juego.terminado) {
+    particulas.push({
+      x: PLAYER_X, y: GROUND_Y - 2,
+      vx: -juego.gameSpeed * 0.6 - Math.random(), vy: -Math.random() * 0.6,
+      vida: 20 + Math.random() * 10
+    });
+  }
+  particulas = particulas.filter(p => p.vida > 0);
+  for (const p of particulas) {
+    ctx.fillStyle = `rgba(255,183,3,${Math.min(1, p.vida / 25)})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+    ctx.fill();
+    p.x += p.vx; p.y += p.vy; p.vida--;
+  }
+}
+
+function dibujarObstaculo(o) {
+  if (o.tipo === 'suelo') {
+    const grad = ctx.createLinearGradient(o.x, o.y, o.x, o.y + o.height);
+    grad.addColorStop(0, '#ffd166'); grad.addColorStop(1, '#ffb703');
+    ctx.fillStyle = grad;
+    // grupo de picos triangulares
+    const picos = 3;
+    const anchoPico = o.width / picos;
+    ctx.beginPath();
+    ctx.moveTo(o.x, o.y + o.height);
+    for (let i = 0; i < picos; i++) {
+      ctx.lineTo(o.x + anchoPico * i + anchoPico / 2, o.y);
+      ctx.lineTo(o.x + anchoPico * (i + 1), o.y + o.height);
+    }
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    const cx = o.x + o.width / 2, cy = o.y + o.height / 2;
+    const grad = ctx.createLinearGradient(o.x, o.y, o.x, o.y + o.height);
+    grad.addColorStop(0, '#c8a2ff'); grad.addColorStop(1, '#9b5de5');
+    ctx.fillStyle = grad;
+    // silueta tipo "dron/ave" — rombo con alitas
+    ctx.beginPath();
+    ctx.moveTo(cx - o.width / 2, cy);
+    ctx.lineTo(cx, cy - o.height / 2);
+    ctx.lineTo(cx + o.width / 2, cy);
+    ctx.lineTo(cx, cy + o.height / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, o.width * 0.15, o.height * 0.18, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function dibujar() {
+  distanciaRecorridaVisual += juego.gameSpeed;
+
+  // cielo con degradado (se oscurece levemente a medida que sube el puntaje/dificultad)
+  const progreso = Math.min(1, (juego.gameSpeed - VELOCIDAD_BASE) / (VELOCIDAD_MAXIMA - VELOCIDAD_BASE));
+  const cielo = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+  cielo.addColorStop(0, `rgb(${18 + progreso * 10},${23 + progreso * 5},${52 - progreso * 20})`);
+  cielo.addColorStop(1, `rgb(${40 + progreso * 20},${48 + progreso * 10},${82 - progreso * 15})`);
+  ctx.fillStyle = cielo;
+  ctx.fillRect(0, 0, CANVAS_W, GROUND_Y);
+
+  // estrellas titilando
+  for (const s of ESTRELLAS) {
+    const parpadeo = 0.4 + 0.6 * Math.abs(Math.sin(juego.frame * 0.03 + s.fase));
+    ctx.fillStyle = `rgba(255,255,255,${parpadeo * 0.6})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  dibujarFranjaParallax(MONTANAS_LEJOS, '#233457', null, 60, 0.15);
+  dibujarFranjaParallax(MONTANAS_CERCA, '#2c3f6b', null, 34, 0.35);
+
+  // suelo con degradado + carriles punteados en movimiento
+  const sueloGrad = ctx.createLinearGradient(0, GROUND_Y, 0, CANVAS_H);
+  sueloGrad.addColorStop(0, '#16233a');
+  sueloGrad.addColorStop(1, '#0a1120');
+  ctx.fillStyle = sueloGrad;
+  ctx.fillRect(0, GROUND_Y, CANVAS_W, CANVAS_H - GROUND_Y);
+
+  ctx.strokeStyle = '#3b5687';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, GROUND_Y);
+  ctx.lineTo(CANVAS_W, GROUND_Y);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(255,183,3,0.35)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([18, 16]);
+  ctx.lineDashOffset = -distanciaRecorridaVisual;
+  ctx.beginPath();
+  ctx.moveTo(0, GROUND_Y + 20);
+  ctx.lineTo(CANVAS_W, GROUND_Y + 20);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  actualizarYDibujarParticulas();
+
+  for (const o of juego.obstaculos) dibujarObstaculo(o);
+
+  dibujarJugador();
+
+  // destello rojo breve al colisionar
+  if (juego.terminado && destelloColision < 12) {
+    ctx.fillStyle = `rgba(255,77,109,${0.35 - destelloColision * 0.03})`;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    destelloColision++;
+  }
+
+  marcadorTop.textContent = 'Puntaje: ' + juego.score;
+  actualizarHud();
+}
+
+function actualizarHud() {
+  const lane = LANES[juego.carril];
+  carrilBadge.lastChild.textContent = ' ' + lane.nombre;
+  carrilDot.style.background = lane.color;
+  barraCombustibleFill.style.width = juego.combustible + '%';
+  barraCombustibleFill.style.background = juego.combustible < 30 ? '#ff4d6d' : '#00d9c0';
+  const progresoMeta = Math.min(100, (juego.distanciaRecorrida / META_DISTANCIA) * 100);
+  barraMetaFill.style.width = progresoMeta + '%';
+  barraMetaFill.style.background = '#ffb703';
+}
+
+function registrarDecision(percepcion, accion) {
+  // Solo registramos "eventos" de decisión (cuando la acción cambia y no es 'ninguna'),
+  // para no llenar la traza con cientos de frames repitiendo la misma acción.
+  if (accion !== 'ninguna' && accion !== ultimaAccionFrame) {
+    historialDecisiones.unshift({
+      accion,
+      distancia: percepcion.distancia,
+      tipo: percepcion.tipo,
+      velocidad: percepcion.velocidadJuego
+    });
+    if (historialDecisiones.length > 5) historialDecisiones.pop();
+  }
+  ultimaAccionFrame = accion;
+}
+
+function renderizarTraza() {
+  if (historialDecisiones.length === 0) {
+    trazaTexto.textContent = 'Aún no hay decisiones registradas.';
+    return;
+  }
+  const n = historialDecisiones.length;
+  trazaTexto.innerHTML = historialDecisiones.map((d, i) => {
+    const numero = n - i;
+    return `<div class="decisionItem">${numero}. [${d.accion.toUpperCase()}] ← percepción: `
+      + `distancia=${d.distancia}, tipo=${d.tipo}, velocidad=${d.velocidad}</div>`;
+  }).join('');
+}
+
+function actualizarPanel(percepcion, accion, estadoInterno, modo) {
+  const nombreCarril = LANES[percepcion.carrilActual].nombre;
+  percepcionTexto.textContent =
+    `detectado: ${percepcion.obstaculoDetectado}\n` +
+    `distancia: ${percepcion.distancia}\n` +
+    `tipo: ${percepcion.tipo}\n` +
+    `velocidadJuego: ${percepcion.velocidadJuego}\n` +
+    `enElSuelo: ${percepcion.enElSuelo}\n` +
+    `agachado: ${percepcion.agachado}\n` +
+    `carrilActual: ${percepcion.carrilActual} (${nombreCarril})\n` +
+    `combustibleRestante: ${percepcion.combustibleRestante}\n` +
+    `distanciaRecorrida: ${percepcion.distanciaRecorrida} / ${percepcion.metaDistancia}`;
+  percepcionTexto.style.whiteSpace = 'pre-line';
+
+  if (estadoInterno && modo === 'modelo') {
+    estadoInternoTexto.textContent =
+      `velocidadEstimada: ${estadoInterno.velocidadEstimada.toFixed(2)}\n` +
+      `distanciaSeguraCalculada: ${estadoInterno.distanciaSeguraCalculada}\n` +
+      `distanciaRecorrida (interna): ${Math.round(estadoInterno.distanciaRecorrida)}`;
+  } else if (estadoInterno && modo === 'objetivos') {
+    estadoInternoTexto.textContent =
+      `meta: llegar al final sin colisionar\n` +
+      `plan: mantenerse en carril ${estadoInterno.carrilObjetivo} (${LANES[estadoInterno.carrilObjetivo].nombre})\n` +
+      `el plan NO se reevalúa durante la partida`;
+  } else if (estadoInterno && modo === 'utilidad') {
+    estadoInternoTexto.textContent =
+      `carril evaluado como óptimo ahora: ${estadoInterno.ultimaUtilidadCarril ?? '—'}\n` +
+      `la utilidad de los 3 carriles se recalcula cada ciclo\n` +
+      `(el peso del combustible sube si combustibleRestante < 30)`;
+  } else {
+    estadoInternoTexto.textContent = '— (no aplica en este modo)';
+  }
+  estadoInternoTexto.style.whiteSpace = 'pre-line';
+
+  accionActual.textContent = accion;
+}
+
+function bucle() {
+  if (!corriendo) return;
+  const percepcion = juego.obtenerPercepcion();
+  let accion = 'ninguna';
+
+  if (selectorModo.value === 'manual') {
+    accion = accionManualActual;
+  } else if (selectorModo.value === 'reflejo') {
+    accion = agenteReflejo(percepcion);
+  } else if (selectorModo.value === 'modelo') {
+    const resultado = agenteModelo(percepcion, estadoInternoAgente);
+    accion = resultado.accion;
+    estadoInternoAgente = resultado.nuevoEstado;
+  } else if (selectorModo.value === 'objetivos') {
+    const resultado = agenteObjetivos(percepcion, estadoInternoAgente);
+    accion = resultado.accion;
+    estadoInternoAgente = resultado.nuevoEstado;
+  } else if (selectorModo.value === 'utilidad') {
+    const resultado = agenteUtilidad(percepcion, estadoInternoAgente);
+    accion = resultado.accion;
+    estadoInternoAgente = resultado.nuevoEstado;
+  }
+
+  const { terminado } = juego.step(accion);
+  dibujar();
+  registrarDecision(percepcion, accion);
+  renderizarTraza();
+  actualizarPanel(percepcion, accion, estadoInternoAgente, selectorModo.value);
+
+  if (!terminado) {
+    requestAnimationFrame(bucle);
+  } else {
+    corriendo = false;
+    let motivo = 'Colisión con un obstáculo';
+    if (juego.victoria) motivo = '🏁 ¡Meta alcanzada!';
+    else if (juego.sinCombustible) motivo = 'Se quedó sin combustible';
+    pantallaFin.querySelector('h2').textContent = juego.victoria ? '🏆 ¡Victoria!' : 'Fin de la partida';
+    textoFin.textContent = `${motivo} — Puntaje final: ${juego.score} — Modo: ${selectorModo.value}`;
+    pantallaFin.style.display = 'flex';
+  }
+}
+
+function iniciarPartida() {
+  juego = new Juego();
+  estadoInternoAgente = null;
+  accionManualActual = 'ninguna';
+  particulas = [];
+  destelloColision = 0;
+  historialDecisiones = [];
+  ultimaAccionFrame = 'ninguna';
+  trazaTexto.textContent = 'Aún no hay decisiones registradas.';
+  pantallaInicio.style.display = 'none';
+  pantallaFin.style.display = 'none';
+  corriendo = true;
+  requestAnimationFrame(bucle);
+}
+
+document.getElementById('btnComenzar').addEventListener('click', iniciarPartida);
+document.getElementById('btnIniciar').addEventListener('click', iniciarPartida);
+document.getElementById('btnReintentar').addEventListener('click', iniciarPartida);
+
+document.addEventListener('keydown', (e) => {
+  if (selectorModo.value !== 'manual') return;
+  if (e.code === 'ArrowUp' || e.code === 'Space') { accionManualActual = 'saltar'; e.preventDefault(); }
+  if (e.code === 'ArrowDown') { accionManualActual = 'agachar'; e.preventDefault(); }
+  if (e.code === 'KeyW') { accionManualActual = 'carrilArriba'; e.preventDefault(); }
+  if (e.code === 'KeyS') { accionManualActual = 'carrilAbajo'; e.preventDefault(); }
+});
+document.addEventListener('keyup', (e) => {
+  if (selectorModo.value !== 'manual') return;
+  if (e.code === 'ArrowDown' && accionManualActual === 'agachar') accionManualActual = 'ninguna';
+  if ((e.code === 'ArrowUp' || e.code === 'Space') && accionManualActual === 'saltar') accionManualActual = 'ninguna';
+  if (e.code === 'KeyW' && accionManualActual === 'carrilArriba') accionManualActual = 'ninguna';
+  if (e.code === 'KeyS' && accionManualActual === 'carrilAbajo') accionManualActual = 'ninguna';
+});
+
+/* =========================================================
+   EXPERIMENTACIÓN: 20 partidas en modo acelerado
+   ========================================================= */
+function simularPartida(modo, maxFrames = 6000) {
+  const j = new Juego();
+  let estado = null;
+  let frames = 0;
+  while (!j.terminado && frames < maxFrames) {
+    const percepcion = j.obtenerPercepcion();
+    let accion = 'ninguna';
+    if (modo === 'reflejo') {
+      accion = agenteReflejo(percepcion);
+    } else if (modo === 'modelo') {
+      const r = agenteModelo(percepcion, estado);
+      accion = r.accion; estado = r.nuevoEstado;
+    } else if (modo === 'objetivos') {
+      const r = agenteObjetivos(percepcion, estado);
+      accion = r.accion; estado = r.nuevoEstado;
+    } else if (modo === 'utilidad') {
+      const r = agenteUtilidad(percepcion, estado);
+      accion = r.accion; estado = r.nuevoEstado;
+    }
+    j.step(accion);
+    frames++;
+  }
+  return { puntaje: j.score, framesSobrevividos: frames, victoria: j.victoria };
+}
+
+const resultadosGuardados = {};
+
+function promedio(arr) { return arr.reduce((a, b) => a + b, 0) / arr.length; }
+function desviacionEstandar(arr) {
+  const m = promedio(arr);
+  return Math.sqrt(promedio(arr.map(x => (x - m) ** 2)));
+}
+
+function ejecutarExperimento() {
+  const modo = selectorModo.value;
+  if (modo === 'manual') {
+    alert('Selecciona un agente (no manual) en el selector para ejecutar el experimento.');
+    return;
+  }
+  const resultados = [];
+  for (let i = 0; i < 20; i++) resultados.push(simularPartida(modo));
+
+  const puntajes = resultados.map(r => r.puntaje);
+  const frames = resultados.map(r => r.framesSobrevividos);
+  const exitos = resultados.filter(r => r.victoria).length;
+
+  resultadosGuardados[modo] = {
+    promedioPuntaje: promedio(puntajes).toFixed(1),
+    desvPuntaje: desviacionEstandar(puntajes).toFixed(1),
+    tiempoPromedio: (promedio(frames) / 60).toFixed(2), // asumiendo ~60 fps
+    tasaExito: ((exitos / resultados.length) * 100).toFixed(0)
+  };
+  renderizarTablaResultados();
+}
+
+function renderizarTablaResultados() {
+  const cuerpo = document.getElementById('cuerpoTablaResultados');
+  const claves = Object.keys(resultadosGuardados);
+  if (claves.length === 0) {
+    cuerpo.innerHTML = '<tr><td colspan="5" class="nota">Sin experimentos aún.</td></tr>';
+    return;
+  }
+  const nombres = {
+    reflejo: 'Reflejo simple',
+    modelo: 'Basado en modelo',
+    objetivos: 'Basado en objetivos',
+    utilidad: 'Basado en utilidad'
+  };
+  cuerpo.innerHTML = claves.map(k => {
+    const r = resultadosGuardados[k];
+    return `<tr><td>${nombres[k]}</td><td>${r.promedioPuntaje}</td><td>${r.desvPuntaje}</td><td>${r.tiempoPromedio}</td><td>${r.tasaExito}%</td></tr>`;
+  }).join('');
+}
+
+document.getElementById('btnExperimento').addEventListener('click', ejecutarExperimento);
+
+dibujar();
+</script>
+</body>
+</html>
